@@ -22,6 +22,9 @@ This repository is part of a pipeline made of multiple components in addition to
 * **Driver Module** (`drivers`)  
   Top Level module with ways to run the rest of the modules with pipelines linking them allowing for broader usage.
 
+* **Shared Modules** (`module`)  
+  Repository containing all code and functions shared between base model, benchmark, openmm_generate, and westpa_prop.
+
 ## Status
 
 ⚠️ **IMPORTANT**: Our code is currently being ported and refactored from private repositories for public release. The full codebase with documentation and tutorials will be provided within one to two weeks.
