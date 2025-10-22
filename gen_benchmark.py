@@ -109,7 +109,7 @@ class WestpaFolders:
     trajs_locs: list[Path]
     topology: md.Topology
     max_trajs_load: int | None
-    do_green: bool
+    ssmsm: bool
     cut: bool
     
 Benchmarkables = ModelPath | TrajFolder | OldBenchmarkRerun | WestpaFolders
@@ -133,7 +133,7 @@ class BenchmarkWestpaFolders:
     trajs_locs: list[Path]
     topology: md.Topology
     max_trajs_load: int | None
-    do_green: bool
+    ssmsm: bool
     cut: bool
 
 @dataclass
@@ -173,8 +173,9 @@ class Benchmark:
             case TrajFolder(trajs_folder):
                 traj_paths = list(trajs_folder.iterdir())
                 self.benchmark_descriptor = BenchmarkTrajFolder(trajs_folder, traj_paths)
-            case WestpaFolders(trajs_locs, topology, max_trajs_load, do_green, cut):
-                self.benchmark_descriptor = BenchmarkWestpaFolders(trajs_locs, topology, max_trajs_load, do_green, cut)
+            case WestpaFolders(trajs_locs, topology, max_trajs_load, ssmsm, cut):
+                self.benchmark_descriptor = BenchmarkWestpaFolders(trajs_locs, topology,
+                                                                   max_trajs_load, ssmsm, cut)
             case OldBenchmarkRerun(old_dir):
                 with open(os.path.join(old_dir, "benchmark.json"), "r") as f:
                     json_data=f.read()
@@ -272,7 +273,7 @@ class Benchmark:
                     gen_pickle_path = f"{os.path.join(self.output_dir, protein_name)}_model_replicas.pkl"
                     with open(gen_pickle_path, "wb") as f:
                          pickle.dump(dict(mdtraj_list=[x.trajectory for x in model_trajs], topology=None, title=""), f)
-                case BenchmarkWestpaFolders(trajs_loc, topology, max_trajs_load, do_green, cut):
+                case BenchmarkWestpaFolders(trajs_loc, topology, max_trajs_load, ssmsm, cut):
                     # num_keep = 300
                     # trajs_loc = trajs_loc[:num_keep]
                     # self.westpa_weights = self.westpa_weights[:num_keep]
@@ -291,7 +292,7 @@ class Benchmark:
                     all_kde_data = {}
                     tica_components = [0, 1, 2, 3]
                     num_bins = 80
-                    if do_green:
+                    if ssmsm:
                         for i, comp in enumerate(tica_components):
                             # Step 1: Calculate component values
                             component_values = []
@@ -593,13 +594,15 @@ def main() -> None:
             # make fake weights of ones: one per segment file
             n_trajs = len(trajs_paths)
             westpa_weights = np.ones(n_trajs)
-            to_benchmark = WestpaFolders([Path(x) for x in trajs_paths], topology, args.max_westpa_trajs, args.do_green, args.westpa_cut)
+            to_benchmark = WestpaFolders([Path(x) for x in trajs_paths], topology,
+                                         args.max_westpa_trajs, args.ssmsm, args.westpa_cut)
         elif args.westpa_weights and args.westpa_weights is not None:
             if args.westpa_weights.endswith(".npy"):
                 raise ValueError("WESTPA weights as .npy not implemented yet, please use .h5 or .hdf5")
             elif args.westpa_weights.endswith(".h5") or args.westpa_weights.endswith(".hdf5"):
                 westpa_weights, trajs_paths = load_all_weights_and_trajs_flat(args.westpa_weights, args.trajs_folder, ext=args.traj_extension)
-                to_benchmark = WestpaFolders([Path(x) for x in trajs_paths], topology, args.max_westpa_trajs, args.do_green, args.westpa_cut)
+                to_benchmark = WestpaFolders([Path(x) for x in trajs_paths], topology,
+                                             args.max_westpa_trajs, args.ssmsm, args.westpa_cut)
         else:
             westpa_weights = None
             to_benchmark = TrajFolder(args.trajs_folder)
