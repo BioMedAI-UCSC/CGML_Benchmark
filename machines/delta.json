@@ -1,0 +1,8 @@
+{
+  "native_data_300k_dir": "/work/hdd/bbpa/acbruce/md_data/generate",
+  "native_data_350k_dir": "/work/hdd/bbpa/acbruce/cecilia_numpy/majewski_2023_data",
+  "analysis_cache_dir": "/work/hdd/bbpa/acbruce/benchmark_cache",
+  "benchmark_outputs_dir": "/work/hdd/bbpa/benchmarks",
+  "experimental_structure_rmsd_dir": "/work/hdd/bbpa/acbruce/expiremental_structure"
+}
+

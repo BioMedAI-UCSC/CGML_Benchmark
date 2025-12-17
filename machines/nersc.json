@@ -1,0 +1,8 @@
+{
+  "native_data_300k_dir": "/global/cfs/cdirs/m4229/alex_senior_thesis/benchmark_set/",
+  "native_data_350k_dir": "/ASK_ANDY_TODO",
+  "analysis_cache_dir": "/global/cfs/cdirs/m4229/alex_senior_thesis/benchmark_cache",
+  "benchmark_outputs_dir": "/global/cfs/cdirs/m4229/alex_senior_thesis/benchmark_results",
+  "experimental_structure_rmsd_dir": "/global/cfs/cdirs/m4229/andy/expiremental_structure"
+}
+

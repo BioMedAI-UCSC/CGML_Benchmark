@@ -1,0 +1,8 @@
+{
+  "native_data_300k_dir": "/media/DATA_18_TB_1/andy/benchmark_set_5/",
+  "native_data_350k_dir": "/media/DATA_18_TB_1/daniel_s/majewski_2023_data",
+  "analysis_cache_dir": "/media/DATA_18_TB_1/andy/benchmark_cache_v2",
+  "benchmark_outputs_dir": "/media/DATA_18_TB_1/benchmark_sims",
+  "experimental_structure_rmsd_dir": "/media/DATA_18_TB_1/andy/expiremental_structure"
+}
+
