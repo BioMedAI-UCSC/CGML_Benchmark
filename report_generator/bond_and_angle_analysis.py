@@ -55,39 +55,43 @@ def make_plot_grid(length, row_len=3):
     return fig, axes
 
 def calculate_bond_lengths(coordinates: mdtraj.Trajectory) -> numpy.typing.NDArray:
-    # Calculate bond lengths for a single carbon alpha chain (or some other simple linear series of bonds)
-    assert coordinates.n_chains == 1, "Only single chain proteins are supported"
+    # Calculate bond lengths along every chain in the topology. Each chain is
+    # walked independently so we never join the last bead of chain A to the
+    # first of chain B. Works for protein-only (single CA chain) and for
+    # protein + DNA / RNA complexes (multiple chains, mixed CA / P backbones).
     index_list = []
     assert coordinates.top is not None
     for chain in coordinates.top.chains:
         a_idx = [i.index for i in chain.atoms]
         for i in range(len(a_idx) - 1):
             index_list.append(a_idx[i:i+2])
-    
+    if not index_list:
+        return numpy.zeros((coordinates.n_frames, 0), dtype=numpy.float32)
     return mdtraj.compute_distances(coordinates, index_list, periodic=False)
 
 def calculate_bond_angles(coordinates: mdtraj.Trajectory) -> numpy.typing.NDArray:
-    # Calculate angles for a single carbon alpha chain (or some other simple linear series of bonds)
-    assert coordinates.n_chains == 1, "Only single chain proteins are supported"
+    # Per-chain angle list; see calculate_bond_lengths for rationale.
     index_list = []
     assert coordinates.top is not None
     for chain in coordinates.top.chains:
         a_idx = [i.index for i in chain.atoms]
         for i in range(len(a_idx) - 2):
             index_list.append(a_idx[i:i+3])
+    if not index_list:
+        return numpy.zeros((coordinates.n_frames, 0), dtype=numpy.float32)
     return mdtraj.compute_angles(coordinates, index_list, periodic=False)
 
 def calculate_dihedrals(coordinates: mdtraj.Trajectory) -> numpy.typing.NDArray:
-    # Calculate angles for a single carbon alpha chain (or some other simple linear series of bonds)
-    assert coordinates.n_chains == 1, "Only single chain proteins are supported"
+    # Per-chain dihedral list; see calculate_bond_lengths for rationale.
     index_list = []
     assert coordinates.top is not None
     for chain in coordinates.top.chains:
         a_idx = [i.index for i in chain.atoms]
         for i in range(len(a_idx) - 3):
             index_list.append(a_idx[i:i+4])
+    if not index_list:
+        return numpy.zeros((coordinates.n_frames, 0), dtype=numpy.float32)
     result = mdtraj.compute_dihedrals(coordinates, index_list, periodic=False)
-    # result[result<0] += 2*np.pi
     return result
 
 def plot_hist(ax, values, bins=350, hist_range=None, label=None):

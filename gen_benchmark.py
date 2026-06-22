@@ -164,10 +164,16 @@ class Benchmark:
             component_analysis: ComponentAnalysisTypes,
             make_table: bool,
             westpa_weights: np.ndarray | None,
+            prior_name: str = "CA_Majewski2022_v1",
     ) -> None:
         self.component_analysis = component_analysis
         self.make_table = make_table
         self.westpa_weights = westpa_weights
+        # Which CG-mapping / prior to use for native loading + TICA fitting.
+        # CA_Majewski2022_v1 is protein-only (CA beads). CA_DNA adds P beads
+        # for DNA backbones. CA_DNA_RNA adds RNA. Pass the name that matches
+        # the prior your model was trained with.
+        self.prior_name = prior_name
 
         match to_benchmark:
             case TrajFolder(trajs_folder):
@@ -224,9 +230,9 @@ class Benchmark:
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         logging.info(f"Saving simulations to {self.log_dir}")
 
-    def benchmark_protein(self, protein_name: str) -> dict:        
-        model_output_path: Path | None = None                
-        prior_params = {"prior_configuration_name":"CA_Majewski2022_v1"}
+    def benchmark_protein(self, protein_name: str) -> dict:
+        model_output_path: Path | None = None
+        prior_params = {"prior_configuration_name": self.prior_name}
 
         with load_trajs_semaphore:
             native_paths = self.native_paths[protein_name]
@@ -298,8 +304,11 @@ class Benchmark:
                             component_values = []
                             for traj in tqdm(trajs):
                                 assert traj.topology is not None
-                                ca_atoms = traj.topology.select('name CA')
-                                traj_ca = traj.atom_slice(ca_atoms)
+                                # Keep all CG backbone beads (CA for protein, P for DNA/RNA).
+                                cg_atoms = traj.topology.select('name CA or name P')
+                                if len(cg_atoms) == 0:
+                                    cg_atoms = list(range(traj.n_atoms))
+                                traj_ca = traj.atom_slice(cg_atoms)
                                 values = calculate_component_values(component_analysis_model, traj_ca, [comp])
                                 component_series = np.array(values[comp])
                                 component_values.append(component_series)
@@ -451,7 +460,8 @@ class Benchmark:
                 "temperature": self.temperature,
                 "used_cache": not self.force_cache_regen,
                 "model_path": model_path,
-                "rmsd_dir": self.ref_data.rmsd_dir
+                "rmsd_dir": self.ref_data.rmsd_dir,
+                "prior_configuration_name": self.prior_name,
             }), indent=4))
 
         return benchmarkFile
@@ -469,9 +479,10 @@ class Benchmark350(Benchmark):
             component_analysis: ComponentAnalysisTypes,
             make_table: bool,
             westpa_weights: np.ndarray | None = None,
+            prior_name: str = "CA_Majewski2022_v1",
     ) -> None:
         self.temperature = 350
-        super().__init__(to_benchmark, use_cache, ref_data, proteins, output_dir_c, only_gen_cache, component_analysis, make_table, westpa_weights)
+        super().__init__(to_benchmark, use_cache, ref_data, proteins, output_dir_c, only_gen_cache, component_analysis, make_table, westpa_weights, prior_name)
 
         self.native_paths = {}
         self.starting_poses = {}
@@ -494,9 +505,10 @@ class Benchmark300(Benchmark):
             component_analysis: ComponentAnalysisTypes,
             make_table: bool,
             westpa_weights: np.ndarray | None = None,
+            prior_name: str = "CA_Majewski2022_v1",
     ) -> None:
         self.temperature = 300
-        super().__init__(to_benchmark, use_cache, ref_data, proteins, output_dir_c, only_gen_cache, component_analysis, make_table, westpa_weights)
+        super().__init__(to_benchmark, use_cache, ref_data, proteins, output_dir_c, only_gen_cache, component_analysis, make_table, westpa_weights, prior_name)
         self.native_paths = {}
         for p in proteins:
             self.native_paths[p] = get_native_paths(os.path.join(self.ref_data.data_300_path, p), self.force_cache_regen)
@@ -562,6 +574,11 @@ def main() -> None:
     arg_parser.add_argument("--do-green", action=argparse.BooleanOptionalAction, default=False, help="Enable MSM kde density as green line")
     arg_parser.add_argument("--max-westpa-trajs", default=None, type=int, help="Max westpa trajs to use")
     arg_parser.add_argument("--westpa-implicit", action=argparse.BooleanOptionalAction, default=False, help="Toggle if running on implicit westpa data, idk why ngl")
+    arg_parser.add_argument("--prior-name", type=str, default="CA_Majewski2022_v1",
+                            help="CG prior to use for atom selection and TICA fitting. "
+                                 "CA_Majewski2022_v1 (protein-only, default), CA_DNA (protein + DNA), "
+                                 "CA_DNA_RNA (protein + DNA + RNA). Must match the prior the model was trained on. "
+                                 "Stored in benchmark.json so gen_report.py picks it up automatically.")
 
     args = arg_parser.parse_args()
     
@@ -643,10 +660,10 @@ def main() -> None:
     # put the code below into a separate function
     if args.temperature == 350:
         logging.info('Running at 350K')
-        benchmark = Benchmark350(to_benchmark, args.use_cache, ref_data, args.proteins, args.output_dir, args.only_gen_cache, component_analysis_type, args.enable_msm_metrics, westpa_weights)
+        benchmark = Benchmark350(to_benchmark, args.use_cache, ref_data, args.proteins, args.output_dir, args.only_gen_cache, component_analysis_type, args.enable_msm_metrics, westpa_weights, prior_name=args.prior_name)
     elif args.temperature == 300:
         logging.info('Running at 300K')
-        benchmark = Benchmark300(to_benchmark, args.use_cache, ref_data, args.proteins, args.output_dir, args.only_gen_cache, component_analysis_type, args.enable_msm_metrics, westpa_weights)
+        benchmark = Benchmark300(to_benchmark, args.use_cache, ref_data, args.proteins, args.output_dir, args.only_gen_cache, component_analysis_type, args.enable_msm_metrics, westpa_weights, prior_name=args.prior_name)
     else:
         assert False, "temperature must be either 300 or 350"
 

@@ -112,7 +112,16 @@ def runReport(
                             assert isinstance(native_rc_kde, ReactionCoordKde) or native_rc_kde == "radius_of_gyration"
                             assert isinstance(contact_map_native, ContactMap)
 
-                            prior_params = {"prior_configuration_name":"CA_Majewski2022_v1"} #TODO don't hard code this
+                            # Pick up the prior the benchmark was run with so this transparently
+                            # supports CA / CA_DNA / CA_DNA_RNA. gen_benchmark.py writes
+                            # "prior_configuration_name" into benchmark.json since the joint
+                            # protein + nucleic-acid support was added; older benchmarks fall
+                            # back to the protein-only default.
+                            prior_params = {
+                                "prior_configuration_name": benchmark_data.get(
+                                    "prior_configuration_name", "CA_Majewski2022_v1"
+                                )
+                            }
 
                             msm_model: MsmRmsdStatistics | None = None
 
@@ -418,7 +427,17 @@ def make_figs(
     if westpa_weights is not None:
         westpa_weights = np.delete(westpa_weights, removed_indices)
 
-    model_trajs = [ModelTraj(t.trajectory.atom_slice(atom_indices=t.trajectory.topology.select("name CA"))) for t in model_trajs] #this line should really be somewhere else
+    # Keep every CG bead — CA for protein, P for nucleic acid. We previously
+    # filtered to "name CA" which silently dropped DNA / RNA beads from joint
+    # protein + nucleic-acid complexes. Now keep all backbone beads (CA OR P);
+    # falls back to the full topology if neither selection matches.
+    def _keep_cg_backbone(t):
+        top = t.trajectory.topology
+        sel = top.select("name CA or name P")
+        if len(sel) == 0:
+            return t
+        return ModelTraj(t.trajectory.atom_slice(atom_indices=sel))
+    model_trajs = [_keep_cg_backbone(t) for t in model_trajs]
     # Generate tica data
 
     model_tica_datas: list[numpy.typing.NDArray] = tica_model.decompose([calc_atom_distance(traj.trajectory) for traj in model_trajs])
@@ -619,7 +638,7 @@ def make_figs(
             (bond_angles_native_concat, bond_angles_model_concat),
             (dihedrals_native_concat, dihedrals_model_concat)
     ]):
-        logging.info(f"doing {["lengths", "angles", "dihedrals"][i]}")
+        logging.info(f"doing {['lengths', 'angles', 'dihedrals'][i]}")
         native_kde = scipy.stats.gaussian_kde(native_data)
         model_kde = scipy.stats.gaussian_kde(model_data[::30])
         kl = kl_div_calc(native_kde, model_kde, native_data)

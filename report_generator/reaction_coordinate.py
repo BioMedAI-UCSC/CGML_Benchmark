@@ -14,7 +14,17 @@ class ReactionCoordKde:
     max_val: float
     
 def calc_reaction_coordinate(trajs: list[mdtraj.Trajectory]) -> numpy.typing.NDArray:
-    coords = [mdtraj.compute_distances(traj, [(0, traj.n_residues - 1)]) for traj in trajs]
+    # End-to-end of the longest chain. For protein-only this is the canonical
+    # first-CA to last-CA distance. For protein + DNA / RNA complexes we still
+    # get a single well-defined progress coordinate (longest backbone), which
+    # is more biologically meaningful than spanning across chain breaks.
+    def longest_chain_end_pair(traj: mdtraj.Trajectory) -> tuple[int, int]:
+        assert traj.topology is not None
+        longest_chain = max(traj.topology.chains, key=lambda c: c.n_atoms)
+        atoms = [a.index for a in longest_chain.atoms]
+        return atoms[0], atoms[-1]
+
+    coords = [mdtraj.compute_distances(traj, [longest_chain_end_pair(traj)]) for traj in trajs]
     out = numpy.concatenate(coords)
     assert out.shape[1] == 1
     out = out.flatten()
